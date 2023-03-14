@@ -67,7 +67,7 @@ env.set_agents([human_agent, dqn_agent])
 while (True):
     print(">> Start a new game")
 
-    trajectories, payoffs = env.run(is_training=True)
+    trajectories, payoffs = env.run(is_training=False)
     # If the human does not take the final action, we need to
     # print other players action
     final_state = trajectories[0][-1]
