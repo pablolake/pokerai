@@ -61,6 +61,7 @@ dqn_agent = DQNAgent(
 # Reset the environment
 state, _ = env.reset()
 
+
 env.set_agents([human_agent, dqn_agent])
 
 
