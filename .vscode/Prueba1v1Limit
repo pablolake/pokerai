@@ -2,7 +2,7 @@ import os
 from rlcard.agents import NolimitholdemHumanAgent as HumanAgent
 import argparse
 
-from rlcard.games import nolimitholdem
+from rlcard.games import limitholdem
 import torch
 
 import rlcard
@@ -15,8 +15,8 @@ from rlcard.utils import (
     Logger,
     plot_curve,
 )
-env = rlcard.make('no-limit-holdem')
-game = nolimitholdem.Game(num_players=2)
+env = rlcard.make('limit-holdem')
+game = limitholdem.Game(num_players=2)
 human_agent = HumanAgent(env.num_actions)
 def train(args):
 
@@ -75,8 +75,9 @@ def train(args):
             # Here, we assume that DQN always plays the first position
             # and the other players play randomly (if any)
             for ts in trajectories[0]:
+                
                 agent.feed(ts)
-
+               
             # Evaluate the performance. Play with random agents.
             if episode % args.evaluate_every == 0:
                 logger.log_performance(
@@ -94,7 +95,7 @@ def train(args):
     plot_curve(csv_path, fig_path, args.algorithm)
 
     # Save model
-    save_path = os.path.join(args.log_dir, 'model_random_no_limit.pth')
+    save_path = os.path.join(args.log_dir, 'model_random_limit.pth')
     torch.save(agent, save_path)
     print('Model saved in', save_path)
 
@@ -103,7 +104,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--env',
         type=str,
-        default='no-limit-holdem',
+        default='limit-holdem',
         choices=[
             'blackjack',
             'leduc-holdem',
@@ -138,7 +139,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--num_episodes',
         type=int,
-        default=10000,
+        default=10,
     )
     parser.add_argument(
         '--num_eval_games',
@@ -153,7 +154,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--log_dir',
         type=str,
-        default='experiments/no_limit_holdem_random_dqn_result/',
+        default='experiments/limit_holdem_random_dqn_result/',
     )
 
     args = parser.parse_args()

@@ -85,7 +85,7 @@ while (True):
     # Let's take a look at what the agent card is
     print('===============     Cards all Players    ===============')
     for hands in env.get_perfect_information()['hand_cards']:
-        print("hola",num_actions)
+    
         print_card(hands)
 
     print('===============     Result     ===============')
