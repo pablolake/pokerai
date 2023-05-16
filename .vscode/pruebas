@@ -1,11 +1,12 @@
-# Set up the game environment
+import os
+
+import argparse
+
+from rlcard.games import nolimitholdem
+import torch
+
 import rlcard
-from rlcard.agents import NolimitholdemHumanAgent as HumanAgent
-from rlcard.envs import Env
-from rlcard.games.nolimitholdem import Game
-from rlcard.games.nolimitholdem.round import Action
-import tensorflow as tf
-from rlcard.utils import print_card
+from rlcard.agents import RandomAgent
 from rlcard.utils import (
     get_device,
     set_seed,
@@ -14,86 +15,148 @@ from rlcard.utils import (
     Logger,
     plot_curve,
 )
-from collections import namedtuple
-from rlcard.agents.dqn_agent import DQNAgent
-
-Transition = namedtuple('Transition', ['state', 'action', 'reward', 'next_state', 'done', 'legal_actions'])
-# Set up the game environment
 env = rlcard.make('no-limit-holdem')
+game = nolimitholdem.Game(num_players=2)
 
-# Create the human agent object
-human_agent = HumanAgent(env.num_actions)
+def train(args):
 
-replay_memory_size = 20000
-replay_memory_init_size = 1000
-update_target_estimator_every = 1000
-discount_factor = 0.99
-epsilon_start = 1.0
-epsilon_end = 0.1
-epsilon_decay_steps = 20000
-batch_size = 32
-num_actions = env.num_actions
-state_shape=env.state_shape[0]
-train_every = 1
-mlp_layers = [128, 128]
-learning_rate = 0.001
-device = get_device()
+    
+    # Check whether gpu is available
+    device = get_device()
+        
+    # Seed numpy, torch, random
+    set_seed(args.seed)
 
-# Create the DQN agent object
-dqn_agent = DQNAgent(
-    replay_memory_size=replay_memory_size,
-    replay_memory_init_size=replay_memory_init_size,
-    update_target_estimator_every=update_target_estimator_every,
-    discount_factor=discount_factor,
-    epsilon_start=epsilon_start,
-    epsilon_end=epsilon_end,
-    epsilon_decay_steps=epsilon_decay_steps,
-    batch_size=batch_size,
-    num_actions=num_actions,
-    state_shape=state_shape,
-    train_every=train_every,
-    mlp_layers=mlp_layers,
-    learning_rate=learning_rate,
-    device=device
-)
+    # Make the environment with seed
+    env = rlcard.make(
+        args.env,
+        config={
+            'seed': args.seed,
+        }
+    )
 
+    # Initialize the agent and use random agents as opponents
+    if args.algorithm == 'dqn':
+        from rlcard.agents import DQNAgent
+        agent = DQNAgent(
+            num_actions=env.num_actions,
+            state_shape=env.state_shape[0],
+            mlp_layers=[64,64],
+            device=device,
+        )
+    elif args.algorithm == 'nfsp':
+        from rlcard.agents import NFSPAgent
+        agent = NFSPAgent(
+            num_actions=env.num_actions,
+            state_shape=env.state_shape[0],
+            hidden_layers_sizes=[64,64],
+            q_mlp_layers=[64,64],
+            device=device,
+        )
+    agents = [agent]
+    for _ in range(1, env.num_players):
+        agents.append(RandomAgent(num_actions=env.num_actions))
+    env.set_agents(agents)
 
-# Reset the environment
-state, _ = env.reset()
+    # Start training
+    with Logger(args.log_dir) as logger:
+        for episode in range(args.num_episodes):
 
-env.set_agents([human_agent, dqn_agent])
+            if args.algorithm == 'nfsp':
+                agents[0].sample_episode_policy()
 
+            # Generate data from the environment
+            trajectories, payoffs = env.run(is_training=True)
 
-while (True):
-    print(">> Start a new game")
+            # Reorganaize the data to be state, action, reward, next_state, done
+            trajectories = reorganize(trajectories, payoffs)
 
-    trajectories, payoffs = env.run(is_training=False)
-    # If the human does not take the final action, we need to
-    # print other players action
-    final_state = trajectories[0][-1]
-    action_record = final_state['action_record']
-    state = final_state['raw_obs']
-    _action_list = []
-    for i in range(1, len(action_record)+1):
-        if action_record[-i][0] == state['current_player']:
-            break
-        _action_list.insert(0, action_record[-i])
-    for pair in _action_list:
-        print('>> Player', pair[0], 'chooses', pair[1])
+            # Feed transitions into agent memory, and train the agent
+            # Here, we assume that DQN always plays the first position
+            # and the other players play randomly (if any)
+            for ts in trajectories[0]:
+                agent.feed(ts)
 
-    # Let's take a look at what the agent card is
-    print('===============     Cards all Players    ===============')
-    for hands in env.get_perfect_information()['hand_cards']:
-        print("hola",num_actions)
-        print_card(hands)
+            # Evaluate the performance. Play with random agents.
+            if episode % args.evaluate_every == 0:
+                logger.log_performance(
+                    episode,
+                    tournament(
+                        env,
+                        args.num_eval_games,
+                    )[0]
+                )
 
-    print('===============     Result     ===============')
-    if payoffs[0] > 0:
-        print('You win {} chips!'.format(payoffs[0]))
-    elif payoffs[0] == 0:
-        print('It is a tie.')
-    else:
-        print('You lose {} chips!'.format(-payoffs[0]))
-    print('')
+        # Get the paths
+        csv_path, fig_path = logger.csv_path, logger.fig_path
 
-    input("Press any key to continue...")
+    # Plot the learning curve
+    plot_curve(csv_path, fig_path, args.algorithm)
+
+    # Save model
+    save_path = os.path.join(args.log_dir, 'model_random_test_no_limit.pth')
+    torch.save(agent, save_path)
+    print('Model saved in', save_path)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser("DQN/NFSP example in RLCard")
+    parser.add_argument(
+        '--env',
+        type=str,
+        default='no-limit-holdem',
+        choices=[
+            'blackjack',
+            'leduc-holdem',
+            'limit-holdem',
+            'doudizhu',
+            'mahjong',
+            'no-limit-holdem',
+            'uno',
+            'gin-rummy',
+            'bridge',
+        ],
+    )
+    parser.add_argument(
+        '--algorithm',
+        type=str,
+        default='dqn',
+        choices=[
+            'dqn',
+            'nfsp',
+        ],
+    )
+    parser.add_argument(
+        '--cuda',
+        type=str,
+        default='',
+    )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=42,
+    )
+    parser.add_argument(
+        '--num_episodes',
+        type=int,
+        default=10,
+    )
+    parser.add_argument(
+        '--num_eval_games',
+        type=int,
+        default=20,
+    )
+    parser.add_argument(
+        '--evaluate_every',
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        '--log_dir',
+        type=str,
+        default='experiments/no_limit_holdem_random_test_dqn_result/',
+    )
+
+    args = parser.parse_args()
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda
+    train(args)

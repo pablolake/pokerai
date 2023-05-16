@@ -1,5 +1,5 @@
 import os
-from rlcard.agents import NolimitholdemHumanAgent as HumanAgent
+
 import argparse
 
 from rlcard.games import nolimitholdem
@@ -17,7 +17,7 @@ from rlcard.utils import (
 )
 env = rlcard.make('no-limit-holdem')
 game = nolimitholdem.Game(num_players=2)
-human_agent = HumanAgent(env.num_actions)
+
 def train(args):
 
     
@@ -138,7 +138,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--num_episodes',
         type=int,
-        default=10000,
+        default=40000,
     )
     parser.add_argument(
         '--num_eval_games',
