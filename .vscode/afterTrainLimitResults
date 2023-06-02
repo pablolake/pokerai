@@ -1,0 +1,27 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Cargar los datos del archivo CSV
+data = pd.read_csv(r'experiments\limitholdem_afterTrain_with_me_dqn_result\performance.csv')
+
+# Obtener las columnas relevantes para el análisis
+rewards = data['reward']
+episode = data['episode']
+
+# Calcular medias y desviaciones estándar
+mean_reward = rewards.mean()
+std_reward = rewards.std()
+
+
+# Imprimir los resultados
+print('Media de recompensas:', mean_reward)
+print('Desviacion estándar de recompensas:', std_reward)
+
+
+# Crear visualizaciones (por ejemplo, histogramas)
+plt.figure()
+plt.hist(rewards, bins=10)
+plt.xlabel('Recompensa')
+plt.ylabel('Frecuencia')
+plt.title('Distribucion de recompensas')
+plt.show()
