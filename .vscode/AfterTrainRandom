@@ -81,12 +81,7 @@ def train(args):
 
             # Evaluate the performance. Play with random agents.
             if episode % args.evaluate_every == 0:
-                for hands in env.get_perfect_information()['hand_cards']:
-    
-                    print_card(hands)
-            #cartas comunitarias
-                for public_cards in env.get_perfect_information()['public_card']:
-                    print_card(public_cards)
+            
                 logger.log_performance(
                     episode,
                     tournament(
@@ -127,7 +122,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--algorithm',
         type=str,
-        default='dqn',
+        default='nfsp',
         choices=[
             'dqn',
             'nfsp',
@@ -141,22 +136,22 @@ if __name__ == '__main__':
     parser.add_argument(
         '--seed',
         type=int,
-        default=43,
+        default=50,
     )
     parser.add_argument(
         '--num_episodes',
         type=int,
-        default=10,
+        default=50000,
     )
     parser.add_argument(
         '--num_eval_games',
         type=int,
-        default=1,
+        default=50,
     )
     parser.add_argument(
         '--evaluate_every',
         type=int,
-        default=1,
+        default=100,
     )
     parser.add_argument(
         '--log_dir',

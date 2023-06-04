@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Cargar los datos del archivo CSV
-data = pd.read_csv(r'experiments\no_limit_holdem_random_dqn_result\performance.csv')
+data = pd.read_csv(r'experiments\no_limit_holdem_afterTrain_with_me_dqn_result\performance.csv')
 
 # Obtener las columnas relevantes para el análisis
 rewards = data['reward']
@@ -12,7 +12,12 @@ episode = data['episode']
 mean_reward = rewards.mean()
 std_reward = rewards.std()
 
+# Obtener los episodios con reward -100 o 100
+episodes_with_reward = episode[(rewards == -100) | (rewards == 100)]
 
+# Imprimir los episodios con reward -100 o 100
+print('Episodios con reward -100 o 100:')
+print(episodes_with_reward)
 # Imprimir los resultados
 print('Media de recompensas:', mean_reward)
 print('Desviacion estándar de recompensas:', std_reward)
